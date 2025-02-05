@@ -1,7 +1,6 @@
 import Papa from 'papaparse';
 import path from 'path';
 
-// Conditionally require fs only on the server-side
 let fs: typeof import('fs') | undefined;
 
 if (typeof window === 'undefined') {
@@ -34,6 +33,44 @@ interface ParseError {
   row?: number;
 }
 
+function cleanDistrict(district: string): string {
+  return district.replace(/^\d{4}\s+/, '');
+}
+
+function parseAddress(fullAddress: string): { street: string; postcode: string; district: string } {
+  const result = {
+    street: fullAddress,
+    postcode: '',
+    district: ''
+  };
+
+  if (!fullAddress) return result;
+
+  const postalMatch = fullAddress.match(/(.*?)\s(\d{4})\s+([^,]+)$/);
+
+  if (postalMatch) {
+    result.street = postalMatch[1].replace(/,\s*$/, '');
+    result.postcode = postalMatch[2];
+          result.district = cleanDistrict(postalMatch[3]);
+    return result;
+  }
+
+  const parts = fullAddress.split(',').map(part => part.trim());
+  
+  if (parts.length >= 2) {
+    const lastPart = parts[parts.length - 1];
+    const postalDistrictMatch = lastPart.match(/(\d{4})\s+([^,]+)/);
+    
+    if (postalDistrictMatch) {
+      result.street = parts.slice(0, -1).join(', ');
+      result.postcode = postalDistrictMatch[1];
+      result.district = cleanDistrict(postalDistrictMatch[2]);
+    }
+  }
+
+  return result;
+}
+
 export async function loadPropertyData(): Promise<PropertyData[]> {
   if (!fs) {
     console.error('File system (fs) is not available');
@@ -55,34 +92,7 @@ export async function loadPropertyData(): Promise<PropertyData[]> {
     }
 
     return results.data.splice(0, 1000).map(property => {
-      let street = property.address || '';
-      let postcode = '';
-      let district = '';
-
-      if (property.address) {
-        if (property.address.includes(',')) {
-          // Split by comma
-          const [rawStreet, rawRest] = property.address.split(',').map(part => part.trim());
-          const postalAndDistrict = rawRest.match(/(\d{4})\s+(.+)/);
-
-          if (postalAndDistrict) {
-            street = `${rawStreet}, ${rawRest.split(postalAndDistrict[0])[0].trim()}`.trim();
-            postcode = postalAndDistrict[1];
-            district = postalAndDistrict[2];
-          } else {
-            // Fallback: If no valid postcode found, treat the whole part after the comma as street continuation
-            street = `${rawStreet}, ${rawRest}`.trim();
-          }
-        } else {
-          // No comma: split by regex
-          const addressParts = property.address.match(/(.+)\s(\d{4})\s(.+)/);
-          if (addressParts) {
-            street = addressParts[1];
-            postcode = addressParts[2];
-            district = addressParts[3];
-          }
-        }
-      }
+      const { street, postcode, district } = parseAddress(property.address || '');
 
       return {
         property_type: property.property_type || '',

@@ -1,4 +1,3 @@
-// utils/dataProcessor.ts
 import { PropertyData } from './loadData';
 
 export interface ProcessedPropertyData extends PropertyData {
@@ -22,7 +21,6 @@ export const preprocessData = (data: PropertyData[]): {
   processedData: ProcessedPropertyData[];
   stats: PreCalculatedStats;
 } => {
-  // Process and format data
   const processedData = data.map(property => ({
     ...property,
     formattedPrice: new Intl.NumberFormat('da-DK', {
@@ -38,7 +36,6 @@ export const preprocessData = (data: PropertyData[]): {
     priceRange: getPriceRange(property.price)
   }));
 
-  // Pre-calculate statistics
   const stats = calculateStats(processedData);
 
   return { processedData, stats };
@@ -51,7 +48,6 @@ const getPriceRange = (price: number): string => {
 };
 
 const calculateStats = (data: ProcessedPropertyData[]): PreCalculatedStats => {
-  // Calculate price ranges
   const priceRanges = Object.entries(
     data.reduce((acc, property) => {
       const range = property.priceRange;
@@ -60,7 +56,6 @@ const calculateStats = (data: ProcessedPropertyData[]): PreCalculatedStats => {
     }, {} as Record<string, number>)
   ).map(([range, count]) => ({ range, count }));
 
-  // Calculate property types
   const propertyTypes = Object.entries(
     data.reduce((acc, property) => {
       acc[property.property_type] = (acc[property.property_type] || 0) + 1;
@@ -68,7 +63,6 @@ const calculateStats = (data: ProcessedPropertyData[]): PreCalculatedStats => {
     }, {} as Record<string, number>)
   ).map(([type, count]) => ({ type, count }));
 
-  // Calculate average prices by district
   const districtPrices = data.reduce((acc, property) => {
     if (!acc[property.district]) {
       acc[property.district] = { total: 0, count: 0 };
@@ -85,13 +79,11 @@ const calculateStats = (data: ProcessedPropertyData[]): PreCalculatedStats => {
     }))
     .sort((a, b) => b.avgPrice - a.avgPrice);
 
-  // Calculate overall statistics
   const totalProperties = data.length;
   const avgPrice = data.reduce((sum, p) => sum + p.price, 0) / totalProperties;
   const avgSize = data.reduce((sum, p) => sum + p.size_m2, 0) / totalProperties;
   const avgPricePerM2 = avgPrice / avgSize;
 
-  // Calculate monthly volume (assuming data is sorted by date)
   const lastMonthProperties = data.filter(
     p => new Date(p.date) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
   ).length;
